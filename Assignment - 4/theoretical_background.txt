@@ -1,0 +1,398 @@
+================================================================================
+STATIONARY 10-ARM BANDIT: UCB vs EPSILON-GREEDY - THEORY & ANALYSIS
+================================================================================
+
+WHAT I DID:
+-----------
+I compared two action selection strategies on a stationary 10-arm bandit:
+
+Experiment 1: UCB (Upper Confidence Bound)
+- Action selection: Qn(a) + sqrt(2*ln(n)/nj)
+- Uses sample average for Qn(a)
+- Provides optimistic estimate with confidence bonus
+
+Experiment 2: Epsilon-Greedy
+- Action selection: Qn(a) with ε exploration
+- Uses sample average for Qn(a)
+- Simple exploration strategy
+
+Setup: 500 runs, 10,000 steps each, stationary problem
+Rewards: R ~ N(q*(a), 1) where q*(a) is fixed
+
+
+================================================================================
+ALGORITHM FLOWCHART
+================================================================================
+
+GENERAL STRUCTURE (Both Experiments):
+
+┌─────────────────────────────────────────────────────────────┐
+│              START EXPERIMENT (500 independent runs)         │
+└──────────────────────┬──────────────────────────────────────┘
+                       │
+        ┌──────────────▼──────────────┐
+        │  Initialize Bandit:         │
+        │  - q*(a) ~ N(0,1) for a=0-9│
+        │  - Q(a) = 0 for all a       │
+        │  - N(a) = 0 for all a       │
+        └──────────────┬──────────────┘
+                       │
+        ┌──────────────▼──────────────┐
+        │  For t = 1 to 10,000        │
+        └──────────────┬──────────────┘
+                       │
+        ┌──────────────▼──────────────┐
+        │  ACTION SELECTION           │
+        │  (Differs by experiment)    │
+        └──────────────┬──────────────┘
+                       │
+        ┌──────────────▼──────────────┐
+        │ EXP1: UCB                   │
+        │ a = argmax[Qn(a) +          │
+        │   sqrt(2*ln(n)/nj)]         │
+        └──────────────┬──────────────┘
+                       │
+        ┌──────────────▼──────────────────────┐
+        │ EXP2: Epsilon-Greedy                │
+        │ if rand() < ε: a = random action    │
+        │ else: a = argmax[Qn(a)]             │
+        └──────────────┬──────────────────────┘
+                       │
+        ┌──────────────▼──────────────┐
+        │  OBSERVE REWARD             │
+        │  R ~ N(q*(a), 1)            │
+        │  (stationary distribution)  │
+        └──────────────┬──────────────┘
+                       │
+        ┌──────────────▼──────────────┐
+        │  UPDATE Q ESTIMATE          │
+        │  N(a) = N(a) + 1            │
+        │  Q(a) ← Q(a) + [R-Q(a)]/N(a)│
+        │  (sample average)           │
+        └──────────────┬──────────────┘
+                       │
+        ┌──────────────▼──────────────┐
+        │  TRACK PERFORMANCE          │
+        │  - Store reward R           │
+        │  - Check if a is optimal    │
+        └──────────────┬──────────────┘
+                       │
+                    t++
+                       │
+        ┌──────────────▼──────────────┐
+        │  t > 10,000?                │
+        │  (Check loop condition)     │
+        └──────────────┬──────────────┘
+                       │
+            ┌──────────┴──────────┐
+          No│                     │Yes
+            │             Loop ends
+        Continue          Average across
+        to t+1            500 runs
+            │                     │
+            │          ┌──────────▼──────────┐
+            └─────────▶│ Generate Plots:     │
+                       │ 1. Reward vs Steps  │
+                       │ 2. Optimal% vs Step │
+                       │ 3. Reward vs ε      │
+                       └──────────┬──────────┘
+                                  │
+                       ┌──────────▼──────────┐
+                       │        END          │
+                       └─────────────────────┘
+
+
+KEY DIFFERENCES BETWEEN EXPERIMENTS:
+------------------------------------
+1. ACTION SELECTION MECHANISM:
+   - UCB: Uses confidence bound = sqrt(2*ln(n)/nj)
+   - Epsilon-Greedy: Uses random exploration with probability ε
+
+2. EXPLORATION STRATEGY:
+   - UCB: Optimism in face of uncertainty (balances exploration naturally)
+   - Epsilon-Greedy: Pure exploitation with random exploration probability
+
+3. PARAMETER TUNING:
+   - UCB: Fixed formula, no epsilon parameter
+   - Epsilon-Greedy: Must choose epsilon value
+
+For both: Qn(a) always computed using sample average (incremental updates)
+
+
+================================================================================
+THEORETICAL BACKGROUND
+================================================================================
+
+1. STATIONARY BANDIT PROBLEM
+----------------------------
+In my experiment:
+- Each arm a has fixed true value q*(a)
+- All q*(a) values are sampled from N(0, 1) at start
+- They never change throughout the experiment
+- Reward: R ~ N(q*(a), 1)
+
+Difference from Assignment 3 (non-stationary):
+- No random walk drift of q*(a)
+- Old rewards are equally valuable as new rewards
+- Sample average can eventually find optimal action
+
+Optimal action: The arm with highest q*(a) value
+
+
+2. SAMPLE AVERAGE (Qn) - INCREMENTAL FORM
+-------------------------------------------
+Update rule I use:
+Q(a) ← Q(a) + [R - Q(a)] / n
+
+Where:
+- Q(a) = current estimate of action a's value
+- R = observed reward at this step
+- n = total number of times action a selected
+- [R - Q(a)] = prediction error
+
+This is equivalent to: Q(a) = (1/n) × [R₁ + R₂ + ... + Rₙ]
+
+
+3. EXPERIMENT 1: UCB ALGORITHM
+-------------------------------
+UCB = Upper Confidence Bound
+
+Action selection:
+a* = argmax[Qn(a) + sqrt(2*ln(n)/nj)]
+
+Components:
+- Qn(a): Exploitation term (estimated reward of arm a)
+- sqrt(2*ln(n)/nj): Exploration bonus term
+  - n = total timesteps so far
+  - nj = times arm j has been selected
+  - Arms selected fewer times get higher bonus
+
+Why UCB works in stationary problems:
+✓ Arms with high estimates get exploited
+✓ Arms with high uncertainty get explored (few selections)
+✓ Optimism encourages trying promising but untested arms
+✓ Eventually concentrates on optimal arm
+
+Key advantage: No epsilon parameter needed, exploration is automatic
+
+
+4. EXPERIMENT 2: EPSILON-GREEDY ALGORITHM
+-------------------------------------------
+Action selection:
+- With probability ε: Select random action (explore)
+- With probability 1-ε: Select argmax[Qn(a)] (exploit)
+
+Why it works in stationary problems:
+✓ Consistent exploration prevents getting stuck
+✓ Eventually discovers all good arms
+✓ Simple and intuitive
+
+Parameter sensitivity:
+- Too low ε (<0.01): Insufficient exploration, may miss optimal arm
+- Too high ε (>0.5): Too much random exploration, wastes time
+- Sweet spot: Usually ε = 0.01 to 0.1
+
+
+5. KEY CONCEPTS
+----------------
+A. Exploration vs Exploitation:
+   - Exploration: Try different arms to gather information
+   - Exploitation: Use best known arm to maximize immediate reward
+   - Tradeoff: Must balance long-term learning with short-term reward
+
+B. Optimistic Initialization:
+   - UCB: Confidence bounds provide optimism
+   - Epsilon-Greedy: No optimism (all start at 0)
+
+C. Convergence:
+   - In stationary problems, both eventually converge
+   - UCB typically converges faster with fewer suboptimal pulls
+   - Epsilon-Greedy always maintains exploration waste
+
+
+6. EPSILON SENSITIVITY
+-----------------------
+Testing different ε values shows:
+- ε too small: Low exploration, poor early learning
+- ε optimal: Good balance between exploration and exploitation
+- ε too large: Excessive random exploration, suboptimal final reward
+
+Typical pattern:
+- Reward increases as ε increases from 0 (need some exploration)
+- Reward peaks at optimal ε (good exploration)
+- Reward decreases with too high ε (too much random exploration)
+
+
+================================================================================
+RESULTS & INTERPRETATIONS
+================================================================================
+
+PLOT 1 & 2: ALGORITHM COMPARISON (REWARD & OPTIMAL%)
+-----------------------------------------------------
+Observations to expect:
+
+Average Reward:
+- UCB: High reward throughout, steady increase to optimal
+- Epsilon-Greedy: Lower initial reward, slower improvement
+
+Optimal Action %:
+- UCB: Quick convergence to high %, 90-95% by step 1k
+- Epsilon-Greedy: Slower convergence, maintains ε% exploration forever
+
+Why this happens:
+- UCB: Confidence bounds naturally focus on promising arms
+- Epsilon-Greedy: Always explores randomly (wastes ε% of time)
+
+In stationary problems, UCB is theoretically superior with logarithmic
+regret bound: Regret ~ ln(n), whereas Epsilon-Greedy has linear regret
+in exploration waste.
+
+
+PLOT 3: EPSILON SENSITIVITY ANALYSIS
+-------------------------------------
+Expected behavior:
+
+- ε = 0.01: High final reward (little exploration waste)
+- ε = 0.05: Slightly lower (more exploration)
+- ε = 0.1: Even lower (10% actions are random)
+- ε = 0.3: Noticeably lower (30% random actions)
+- ε = 0.5: Significantly lower (half actions random)
+
+The graph should show decreasing trend as ε increases, because:
+- Higher ε means more wasted exploration in stationary environment
+- Unlike non-stationary problem, old arms don't improve over time
+- Exploration has diminishing returns after arms are well-estimated
+
+
+================================================================================
+PRACTICAL INSIGHTS
+================================================================================
+
+1. WHEN TO USE EACH METHOD:
+   
+   Use UCB when:
+   - Problem is stationary (or nearly so)
+   - You want principled exploration without tuning epsilon
+   - Efficient exploration is important
+   - Theoretical guarantees matter
+   
+   Use Epsilon-Greedy when:
+   - Simplicity is preferred over optimality
+   - You can tune epsilon empirically
+   - Problem is non-stationary (we'll see this in assignment 3)
+   - Easy to implement and understand
+
+2. REAL-WORLD APPLICATIONS:
+
+   UCB Applications:
+   - Online advertising (stationary user preferences initially)
+   - Medical trials (balancing safety with efficacy)
+   - Resource allocation with known constraints
+   
+   Epsilon-Greedy Applications:
+   - Recommendation systems (preferences change)
+   - A/B testing with multiple variants
+   - Game AI (balance exploration with performance)
+
+3. EXTENSIONS:
+
+   Beyond basic UCB/Epsilon-Greedy:
+   - Thompson Sampling: Bayesian approach
+   - Softmax/Boltzmann: Probabilistic action selection
+   - Contextual Bandits: Actions depend on context
+   - Reinforcement Learning: Multi-step decisions (MDPs)
+
+
+================================================================================
+FOR VIVA PREPARATION
+================================================================================
+
+Q: What's the difference between stationary and non-stationary?
+A: In stationary problems, true values q*(a) don't change, so old data is
+   equally valid. In non-stationary, values drift, making recent data more
+   valuable. I tested both: Assignment 3 was non-stationary, this is stationary.
+
+Q: Why does UCB work better here?
+A: UCB's confidence bound sqrt(2*ln(n)/nj) provides principled exploration.
+   Arms selected fewer times get higher bonus, naturally balancing exploration.
+   Epsilon-Greedy wastes ε% on purely random exploration, which is inefficient
+   in stationary problems where all arms are equally well-estimated eventually.
+
+Q: What does the term sqrt(2*ln(n)/nj) mean?
+A: It's the confidence interval width. n = total steps (outer uncertainty grows).
+   nj = selections of arm j (inner uncertainty shrinks). Larger width for
+   less-explored arms encourages trying them. As we explore everything, all
+   widths shrink and algorithm focuses on best arm.
+
+Q: How do I choose epsilon?
+A: No universal answer. Test different values and pick best final reward.
+   Typical ranges: 0.01-0.1 for known problems. Graph shows how reward
+   decreases with larger epsilon due to wasted exploration.
+
+Q: Can UCB and Epsilon-Greedy give different optimal arms?
+A: Yes! If they pick different arms early, they might converge to different
+   estimates due to sampling variance (only 500 runs). With infinite runs,
+   both eventually find the true optimal arm in stationary problems.
+
+Q: What if all arms have same true value?
+A: All arms are equally optimal. Both algorithms would eventually select any
+   of them with high probability. The algorithm doesn't "know" they're equal,
+   but learns through sampling.
+
+Q: Why use sample average instead of fixed learning rate?
+A: In stationary problems, sample average is theoretically optimal (minimizes
+   variance while converging to true value). Fixed learning rate (like α=0.1
+   in Assignment 3) is better for non-stationary problems.
+
+
+================================================================================
+KEY EQUATIONS SUMMARY
+================================================================================
+
+Sample Average Update:
+  Qn(a) ← Qn(a) + [R - Qn(a)] / n
+
+UCB Action Selection:
+  a* = argmax[Qn(a) + sqrt(2*ln(n) / nj)]
+
+Epsilon-Greedy Action Selection:
+  if rand() < ε: a = random(0 to 9)
+  else: a = argmax[Qn(a)]
+
+Regret (theoretical comparison):
+  UCB: Regret ~ ln(n)           [logarithmic - efficient]
+  Epsilon-Greedy: Regret ~ ε×n  [linear - wasteful]
+
+
+================================================================================
+CONCLUSION
+================================================================================
+
+My experiments demonstrate:
+
+1. In stationary problems, UCB outperforms Epsilon-Greedy because:
+   - Confidence bounds provide efficient exploration
+   - No wasted random exploration
+   - Theoretically optimal exploration strategy
+
+2. Epsilon value significantly impacts Epsilon-Greedy performance:
+   - Larger ε → more exploration waste → lower final reward
+   - Optimal ε balances exploration needs with exploitation
+
+3. Sample averaging works well for stationary problems:
+   - Converges to true values
+   - More stable than fixed learning rate
+   - Appropriate for problem without drift
+
+4. Core RL insights from this assignment:
+   - Exploration strategy matters significantly
+   - Problem stationarity affects algorithm choice
+   - Principled algorithms (UCB) beat heuristics (Epsilon-Greedy)
+   - Parameter tuning affects performance
+
+These concepts extend to multi-step RL: Bandits are simplest case,
+but the exploration-exploitation tradeoff appears throughout RL.
+
+================================================================================
+END OF DOCUMENT
+================================================================================
