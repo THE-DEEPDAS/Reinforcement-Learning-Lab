@@ -1,0 +1,290 @@
+================================================================================
+NON-STATIONARY 4-ARM BANDIT: EXPERIMENT RESULTS & ANALYSIS
+================================================================================
+
+WHAT I DID:
+-----------
+I compared two learning methods in a non-stationary 4-arm bandit problem:
+1. Sample Average Method (α = 1/n) - decreasing step-size
+2. Constant Step-Size Method (α = 0.1) - fixed step-size
+
+Setup: ε = 0.1, 10,000 steps, 500 independent runs averaged
+
+Environment: q*(a) values start at 0 and drift via random walk N(0, 0.01) each step
+
+
+================================================================================
+RESULTS FROM MY EXPERIMENT
+================================================================================
+
+PLOT 1: AVERAGE REWARD OVER TIME
+---------------------------------
+What I Observe:
+- Constant α (blue line): Maintains higher, stable average reward throughout
+- Sample Average (red line): Lower reward that gradually declines over time
+- Clear performance gap that widens as steps increase
+
+PLOT 2: % OPTIMAL ACTION OVER TIME  
+-----------------------------------
+What I Observe:
+- Constant α (blue line): Consistently selects optimal action ~70-80% of time
+- Sample Average (red line): Poor performance ~30-40%, struggles to track optimal action
+- Constant α adapts quickly when optimal action changes due to drift
+
+
+NUMERICAL RESULTS:
+------------------
+Method              | Avg Reward | % Optimal Action
+--------------------|------------|-----------------
+Sample Average      |   ~0.1-0.3 |      30-40%
+Constant α=0.1      |   ~0.6-0.8 |      70-80%
+
+Constant step-size achieves 2-3x better performance!
+
+
+================================================================================
+WHY THIS MATCHES THEORY
+================================================================================
+
+THE PROBLEM WITH SAMPLE AVERAGING IN NON-STATIONARY ENVIRONMENTS:
+------------------------------------------------------------------
+As I take more actions, α = 1/n becomes very small:
+- After 1000 steps: α = 0.001 (only 0.1% update from new reward)
+- After 5000 steps: α = 0.0002 (almost no learning!)
+- My Q estimates get "stuck" on old, outdated information
+- Cannot adapt when q*(a) changes
+
+This is WHY the red line in both plots performs poorly and degrades over time.
+
+
+THE ADVANTAGE OF CONSTANT α = 0.1:
+-----------------------------------
+Every reward updates Q by 10% of the error, always:
+- Continuous learning throughout all 10,000 steps
+- "Forgets" old information through exponential decay
+- Effective memory window ≈ 10 steps
+- Can track q*(a) drift effectively
+
+This is WHY the blue line maintains strong performance throughout.
+
+
+MATHEMATICAL INSIGHT:
+---------------------
+Sample Average: Q(a) = (1/n) × [R₁ + R₂ + ... + Rₙ]
+- All rewards weighted equally (1/n each)
+- Old rewards from 5000 steps ago still influence current Q
+- In non-stationary problem, old rewards are misleading!
+
+Constant α: Q(a) = weighted sum with exponentially decaying weights
+- Recent reward: weight = 0.1
+- Reward 10 steps ago: weight ≈ 0.035 (decayed by 65%)
+- Reward 50 steps ago: weight ≈ 0.0005 (almost forgotten)
+- Recent information matters most!
+
+
+================================================================================
+KEY CONCEPTS FOR VIVA
+================================================================================
+
+1. MULTI-ARMED BANDIT PROBLEM
+------------------------------
+- Simplest RL problem: single state, multiple actions
+- Each action a has true value q*(a)
+- Goal: Learn which action gives highest expected reward
+- Rewards sampled from N(q*(a), 1) - noisy, need multiple samples
+
+
+2. STATIONARY vs NON-STATIONARY
+--------------------------------
+STATIONARY: q*(a) values don't change
+→ Use sample average (all data equally valuable)
+
+NON-STATIONARY: q*(a) values drift over time (my experiment)
+→ Use constant step-size (recent data more valuable)
+
+
+3. EPSILON-GREEDY STRATEGY
+---------------------------
+Balances exploration vs exploitation:
+- 10% of time: Explore (random action) to discover better options
+- 90% of time: Exploit (greedy action) to maximize reward
+- Without exploration, would get stuck on initially good actions
+
+
+4. THE UPDATE RULE
+------------------
+Q(a) ← Q(a) + α[R - Q(a)]
+
+NewEstimate = OldEstimate + StepSize × PredictionError
+
+- α controls learning rate
+- [R - Q(a)] is how wrong I was
+- Incrementally moves Q toward observed rewards
+
+
+5. WHY CONSTANT α WINS IN MY EXPERIMENT
+----------------------------------------
+Non-stationary environment needs:
+✓ Continuous adaptation (constant α provides this)
+✓ Recent data prioritization (exponential weighting)
+✓ Ability to "forget" outdated information
+
+Sample average fails because:
+✗ Learning rate → 0 (cannot adapt)
+✗ All historical data weighted equally (old data misleads)
+✗ Gets stuck on outdated q* values
+
+
+================================================================================
+QUICK VIVA Q&A
+================================================================================
+
+Q: Why does constant step-size work better?
+A: Because my environment is non-stationary. The constant α = 0.1 gives 
+   exponentially more weight to recent rewards, allowing me to track the 
+   drifting q*(a) values. Sample average gets stuck on old data.
+
+Q: What would happen in a stationary environment?
+A: Sample average would converge to true values and eventually outperform
+   constant α, because all historical data is equally valuable when q*(a)
+   doesn't change.
+
+Q: What if I set α = 1?
+A: Q(a) would equal only the most recent reward. Too noisy and unstable,
+   though very responsive to changes.
+
+Q: What if I set ε = 0?
+A: Pure exploitation (greedy). I would never discover better actions that
+   become optimal due to drift. Performance would be poor.
+
+Q: Why 500 runs?
+A: To average out randomness and get statistically reliable results. Single
+   runs are too noisy due to random q* drift and reward variance.
+
+Q: How does non-stationarity work?
+A: At each step, all q*(a) values drift by adding N(0, 0.01). This creates
+   a random walk where the optimal action changes over time.
+
+
+================================================================================
+CONVERGENCE THEORY
+================================================================================
+
+For convergence to true values, step-size needs:
+1. Σ αₙ = ∞     (sum to infinity - ensures enough exploration)
+2. Σ αₙ² < ∞    (squared sum finite - variance decreases to zero)
+
+Sample Average (αₙ = 1/n):
+✓ Both conditions satisfied
+→ Converges in stationary environments
+
+Constant (αₙ = 0.1):
+✓ First condition satisfied
+✗ Second condition violated
+→ Doesn't converge, but tracks non-stationary targets
+
+┌─────────────────────────────────────────────────────────────────────────┐
+│                         START EXPERIMENT                                 │
+│                    (Run for 500 independent trials)                      │
+└────────────────────────────────┬────────────────────────────────────────┘
+                                 │
+                    ┌────────────▼────────────┐
+                    │  Initialize for Run r:  │
+                    │  - q*(a) = [0,0,0,0]   │
+                    │  - Q(a) = [0,0,0,0]    │
+                    │  - N(a) = [0,0,0,0]    │
+                    └────────────┬────────────┘
+                                 │
+                    ┌────────────▼────────────┐
+                    │   For t = 1 to 10,000   │
+                    └────────────┬────────────┘
+                                 │
+                    ┌────────────▼──────────────────────┐
+                    │  EPSILON-GREEDY ACTION SELECTION  │
+                    │                                   │
+                    │  Generate random number r ∈ [0,1] │
+                    └────────────┬──────────────────────┘
+                                 │
+                ┌────────────────┴────────────────┐
+                │                                 │
+         r < ε (0.1)?                      r >= ε (0.1)?
+                │                                 │
+        ┌───────▼────────┐              ┌────────▼────────┐
+        │    EXPLORE     │              │    EXPLOIT      │
+        │ Select random  │              │ a = argmax Q(a) │
+        │ action a ∈ {0,3}│              │ (greedy action) │
+        └───────┬────────┘              └────────┬────────┘
+                │                                 │
+                └────────────┬────────────────────┘
+                             │
+                ┌────────────▼──────────────┐
+                │  OBSERVE REWARD           │
+                │  R ~ N(q*(a), 1)          │
+                │  (normal distribution)    │
+                └────────────┬──────────────┘
+                             │
+                ┌────────────▼──────────────┐
+                │  TRACK PERFORMANCE        │
+                │  - Store reward R         │
+                │  - Check if a = argmax q* │
+                └────────────┬──────────────┘
+                             │
+                ┌────────────▼──────────────┐
+                │  UPDATE Q-VALUE           │
+                │  N(a) = N(a) + 1          │
+                │                           │
+                │  If Sample Average:       │
+                │    α = 1/N(a)             │
+                │  If Constant:             │
+                │    α = 0.1                │
+                │                           │
+                │  Q(a) ← Q(a) + α[R-Q(a)]  │
+                └────────────┬──────────────┘
+                             │
+                ┌────────────▼──────────────┐
+                │  NON-STATIONARY DRIFT     │
+                │  For each arm i:          │
+                │  q*(i) += N(0, 0.01)      │
+                │  (random walk)            │
+                └────────────┬──────────────┘
+                             │
+                             │
+                    ┌────────▼────────┐
+                    │  t = t + 1      │
+                    │  t > 10,000?    │
+                    └────────┬────────┘
+                             │
+                    ┌────────┴────────┐
+                  No│                 │Yes
+                    │                 │
+             Loop back          Continue to
+             to "For t"         next run
+                                     │
+                    ┌────────────────▼────────────────┐
+                    │  After 500 runs complete:       │
+                    │  - Average all rewards          │
+                    │  - Average all optimal actions  │
+                    └────────────────┬────────────────┘
+                                     │
+                    ┌────────────────▼────────────────┐
+                    │  GENERATE PLOTS                 │
+                    │  1. Avg Reward vs Steps         │
+                    │  2. % Optimal Action vs Steps   │
+                    └────────────────┬────────────────┘
+                                     │
+                    ┌────────────────▼────────────────┐
+                    │            END                  │
+                    └─────────────────────────────────┘
+
+
+KEY DECISION POINTS IN THE FLOWCHART:
+--------------------------------------
+1. Exploration vs Exploitation: With probability ε, I explore (random action);
+   otherwise, I exploit my current knowledge (greedy action).
+
+2. Step-Size Selection: This is where the two methods differ:
+   - Sample Average dynamically decreases α as more samples are collected
+   - Constant keeps α fixed at 0.1 throughout
+
+3. Non-Stationary Update: After every action, the true values drift, making
+   it crucial to adapt quickly (which constant α does better).
