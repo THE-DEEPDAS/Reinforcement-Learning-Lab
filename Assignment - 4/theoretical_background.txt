@@ -27,7 +27,7 @@ ALGORITHM FLOWCHART
 GENERAL STRUCTURE (Both Experiments):
 
 ┌─────────────────────────────────────────────────────────────┐
-│              START EXPERIMENT (500 independent runs)         │
+│              START EXPERIMENT (500 independent runs)        │
 └──────────────────────┬──────────────────────────────────────┘
                        │
         ┌──────────────▼──────────────┐
