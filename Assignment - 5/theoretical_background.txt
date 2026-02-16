@@ -1,0 +1,156 @@
+================================================================================
+ASSIGNMENT 5: NON-STATIONARY BANDITS & ALGORITHM COMPARISON
+================================================================================
+
+OBJECTIVE:
+----------
+Analyze and compare the performance of different bandit algorithms in stationary 
+and non-stationary environments, specifically focusing on:
+1. UCB (Upper Confidence Bound) performance in non-stationary settings.
+2. Sample Average vs. Constant Step-Size (Alpha) updates for tracking changes.
+3. Naive (Explore-Then-Commit) Algorithm analysis.
+
+================================================================================
+1. THEORETICAL CONCEPTS
+================================================================================
+
+A. STATIONARY VS. NON-STATIONARY ENVIRONMENTS
+---------------------------------------------
+- Stationary: The true value q*(a) of each action is constant over time.
+  Goal: Converge to the optimal action as quickly as possible.
+  
+- Non-Stationary: The true values q*(a) change over time (e.g., random walk).
+  Goal: *Track* the optimal action as it changes. "Convergence" is bad here
+  because the past becomes irrelevant. You must essentially "forget" old data.
+
+B. THE UPDATE RULES (MATH)
+--------------------------
+The general update rule for estimating action values Q(a) is:
+  NewEstimate <- OldEstimate + StepSize * [Target - OldEstimate]
+  Q_{n+1} = Q_n + α * [R_n - Q_n]
+
+1. Sample Average (1/n):
+   - StepSize α = 1/n
+   - This averages *all* past rewards equally.
+   - Problem in Non-Stationary: As n -> infinity, 1/n -> 0. The agent stops 
+     updating its estimates effectively. It gives equal weight to a reward 
+     from timestep t=1 and t=1000, even though q*(a) has changed.
+   - Result: Fails to track drifting values.
+
+2. Constant Step-Size (Constant Alpha):
+   - StepSize α = constant (e.g., 0.1)
+   - This results in an *Exponential Recency-Weighted Average*.
+   - Q_{n+1} = αR_n + (1-α)Q_n
+             = αR_n + (1-α)[αR_{n-1} + (1-α)Q_{n-1}]
+             = ...
+   - Recent rewards have higher weight. Old rewards decay exponentially.
+   - Benefit: If q*(a) changes, the estimate Q(a) effectively "catches up" 
+     quickly because recent rewards dominate the sum.
+   - Trade-off: It never fully converges (estimates oscillate around true value), 
+     but this is necessary to track changes.
+
+C. ALGORITHMS IN FOCUS
+----------------------
+
+1. UCB (Upper Confidence Bound):
+   - A_t = argmax [ Q_t(a) + c * sqrt(ln(t) / N_t(a)) ]
+   - In Stationary: Excellent. Converges to optimal with logarithmic regret.
+   - In Non-Stationary: UCB usually struggles without modification.
+     Why? N_t(a) (counts) keep growing, so the exploration bonus shrinks to zero.
+     The algorithm becomes "confident" in its estimates and stops exploring 
+     suboptimal arms, even if those arms become optimal later due to drift.
+     *However*, if the drift is slow, it might track simply because optimistic 
+     initialization or occasional pulls keep estimates somewhat alive, but standard 
+     UCB is not designed for drift (needs Discounted-UCB or Sliding-Window UCB).
+
+2. Naive Algorithm (Explore-Then-Commit):
+   - Phase 1 (Explore): For first K steps (or epsilon portion), choose actions 
+     purely effectively (or round-robin) to gather data.
+   - Phase 2 (Commit): After K steps, pick the arm with highest Q(a) forever.
+   - Pros: Simple implementation.
+   - Cons: 
+     a) How to choose K? Too small = bad estimate. Too large = high regret cost.
+     b) In Non-Stationary: Fails catastrophically. Once it commits, it never 
+        checks other arms again. If the optimal arm becomes suboptimal later, 
+        the Naive algorithm is stuck with a bad arm forever.
+
+================================================================================
+2. EXPECTED GRAPH ANALYSIS & RESULTS
+================================================================================
+
+When you run `Final.ipynb`, look for these patterns in the Reward and Optimal% plots:
+
+PLOT 1: UCB (Stationary vs Non-Stationary)
+------------------------------------------
+- Stationary: UCB curve rises quickly and stays high (near optimal).
+- Non-Stationary: UCB performance will likely degraded over time compared to 
+  Stationary. It might track initially but eventually lag behind because its 
+  step-size (implicit in sample average) shrinks. It takes too long to realize 
+  a "bad" arm has become "good".
+
+PLOT 2: Sample Average vs Constant Alpha (Epsilon-Greedy in Non-Stationary)
+---------------------------------------------------------------------------
+- Sample Average (1/n): 
+  - Graph: Performance improves early on, then likely crashes or plateaus well 
+    below optimality.
+  - Reason: Step size 1/n becomes tiny. Agent "locks in" on whatever was good 
+    at the start and ignores new data.
+    
+- Constant Alpha (α=0.1):
+  - Graph: Performance rises and *maintains* a reasonable level, oscillating 
+    but generally tracking the drift.
+  - Reason: It constantly pays attention to recent rewards. It successfully 
+    identifies when the optimal arm changes (after a few pulls).
+  - Conclusion: Constant Alpha >>> Sample Average for Non-Stationary problems.
+
+PLOT 3: Naive Algorithm Sensitivity
+-----------------------------------
+- Effect of Exploration Length (K):
+  - Small K: High variance. Might commit to wrong arm early.
+  - Large K: Performance curve stays flat (low reward) for a long time during 
+    exploration, then jumps up.
+  - Optimal K: Investigating the "sweet spot" where you learn enough to be 
+    confident but don't waste too much reward.
+- In Non-Stationary graphs, Naive algorithm will show a sharp decline over time 
+  after the "commit" phase, as the chosen arm inevitably drifts away from optimality.
+
+================================================================================
+3. VIVA / EXAM PREPARATION
+================================================================================
+
+Q1: Why does Sample Average fail in non-stationary environments?
+A:  Because the step size 1/n decays to zero. The weight of new information 
+    becomes negligible compared to the history, so the agent cannot "unlearn" 
+    old estimates when the truth changes.
+
+Q2: How does Constant Alpha solve the non-stationary problem?
+A:  By keeping the step size constant (e.g., 0.1), the weight of rewards does 
+    not decay to zero. The estimate effectively becomes a weighted average of 
+    recent rewards (Recency-Weighted Average), allowing it to track changes.
+
+Q3: What is the weakness of the Naive (Explore-Then-Commit) algorithm?
+A:  It separates exploration and exploitation entirely. It wastes reward exploring 
+    too much at first, and then has *zero* adaptability after it commits. It 
+    cannot handle any changes after the commit phase.
+
+Q4: Does UCB work in non-stationary environments?
+A:  Standard UCB works poorly because the confidence interval width scales with 
+    sqrt(1/N). As N grows, the interval shrinks, and the algorithm assumes it 
+    knows the values perfectly, stopping exploration. It fails to notice if a 
+    barely-explored arm suddenly improves.
+
+Q5: What is 'Regret'?
+A:  The difference between the total reward you could have gotten (by playing 
+    optimal arm always) and the reward you actually got.
+    Regret = sum(R_optimal) - sum(R_actual).
+    In non-stationary problems, we want to minimize regret over time by 
+    constantly switching to the new optimal arm.
+
+================================================================================
+KEY FORMULAS
+================================================================================
+Constant Alpha Update:  Q(a) <- Q(a) + α * [R - Q(a)]
+Standard Update:        Q(a) <- Q(a) + (1/n) * [R - Q(a)]
+UCB Action:             argmax [ Q(a) + c * sqrt(ln t / N(a)) ]
+weight of reward R_{t-k}: α(1-α)^k  (for Constant Alpha)
+================================================================================
