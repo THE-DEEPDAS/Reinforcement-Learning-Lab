@@ -1,0 +1,98 @@
+================================================================================
+ASSIGNMENT 6: MEDIAN ELIMINATION (PAC BANDITS)
+================================================================================
+
+OBJECTIVE:
+----------
+Implement and analyze the Median Elimination algorithm for the stochastic
+multi-armed bandit problem. Compare its behavior with familiar baselines
+(UCB and Naive Explore-Then-Commit).
+
+================================================================================
+1. THEORETICAL CONCEPTS
+================================================================================
+
+A. PAC SETTING (Probably Approximately Correct)
+-----------------------------------------------
+Goal: Identify an arm whose expected reward is within epsilon of the optimal
+arm with probability at least 1 - delta.
+
+Notation:
+- epsilon: accuracy tolerance (how close to optimal)
+- delta: failure probability (1 - confidence)
+
+B. MEDIAN ELIMINATION (ME) ALGORITHM
+-----------------------------------
+Median Elimination is a pure-exploration algorithm that progressively removes
+poor arms while tightening confidence.
+
+Algorithm (high level):
+1. Start with the set S of all arms.
+2. For each phase l:
+   - Sample each arm in S for m_l times.
+   - Compute empirical means for arms in S.
+   - Eliminate all arms whose mean is below the median.
+   - Shrink epsilon_l and delta_l for the next phase.
+3. When |S| = 1, return the remaining arm.
+
+Typical parameter schedule:
+- epsilon_1 = epsilon / 4
+- delta_1 = delta / 2
+- epsilon_{l+1} = (3/4) * epsilon_l
+- delta_{l+1} = delta_l / 2
+
+Samples per phase:
+  m_l = ceil( (1 / (2 * epsilon_l^2)) * ln(3 / delta_l) )
+
+Guarantee:
+Median Elimination returns an epsilon-optimal arm with probability >= 1 - delta.
+
+C. COMPARISON WITH UCB AND NAIVE
+--------------------------------
+- UCB: Balances exploration and exploitation at every step. It is a regret-
+  minimizing algorithm and performs well online, but it does not explicitly
+  target the PAC identification goal.
+- Naive Explore-Then-Commit: Samples each arm uniformly for a fixed number of
+  steps, then commits. It can be sample-inefficient compared to Median
+  Elimination because it does not eliminate poor arms early.
+- Median Elimination: More sample-efficient in the pure exploration phase,
+  because it halves the candidate set each phase.
+
+================================================================================
+2. EXPECTED OBSERVATIONS
+================================================================================
+
+- Median Elimination spends an initial exploration budget, then commits to a
+  single arm. The reward curve may be low during exploration, then jumps once
+  exploitation starts.
+- Compared to Naive, Median Elimination typically reaches exploitation faster
+  for the same (epsilon, delta) because it eliminates arms across phases.
+- UCB usually has higher reward earlier because it continuously exploits, but
+  it does not provide the same PAC guarantee.
+
+================================================================================
+3. VIVA / EXAM PREPARATION
+================================================================================
+
+Q1: What does Median Elimination guarantee?
+A: It returns an arm with expected reward within epsilon of the optimal arm
+   with probability at least 1 - delta.
+
+Q2: Why is Median Elimination more efficient than Naive Explore-Then-Commit?
+A: It removes roughly half the arms each phase, so it spends fewer samples
+   on clearly suboptimal arms.
+
+Q3: Is Median Elimination a regret-minimizing algorithm?
+A: No. It is a pure exploration algorithm designed for PAC identification.
+
+Q4: How do epsilon and delta affect sampling?
+A: Smaller epsilon or delta increases samples per phase because higher
+   accuracy or confidence requires more data.
+
+================================================================================
+KEY FORMULAS
+================================================================================
+Samples per phase:  m_l = ceil( (1 / (2 * epsilon_l^2)) * ln(3 / delta_l) )
+Epsilon schedule:   epsilon_{l+1} = (3/4) * epsilon_l
+Delta schedule:     delta_{l+1} = delta_l / 2
+================================================================================
